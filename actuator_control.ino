@@ -1,67 +1,82 @@
+byte desiredValue = 140;  
+byte tolerance = 10;
+const byte pumpPin = 5; //set
+const byte inletValvePin = 6; //set
+const byte exhaustValvePin = 7; //set
+const byte ledPin = 13; //set
+const byte digitalInPin = 9; //set
+float reference_voltage_mv = 6000; 
+float ADCFULLSCALE = 1023;
+float Pmax = 1;
+float Pmin = 0;
+
+#include <Wire.h>
+
 void setup() {
   // put your setup code here, to run once:
-
+  Serial.begin(9600);
+  Wire.begin();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  //input parameters
-double desiredValue = 14.5;  // 100kPa in psi
-double tolerance = 0.5;
-int pumpPin = 5;
-int inletValvePin = 6;
-int exhaustValvePin = 7;
-int ledPin = 13;
-int analogInPin = A0;
-int reference_voltage_mv = 9;
-int ADCFULLSCALE = 10;
-double Pmax = 0.9;
-double Pmin = 0.7;
-
-
+byte val1 = 0;
+byte val2 = 0;
 
 //inflation & deflation 
-                    
+
 if ( digitalRead(2) == HIGH) {
 digitalWrite(inletValvePin,HIGH); // turn pressure valve HIGH
-digitalWrite(pumpPin,HIGH); // make sure pump is on
+analogWrite(pumpPin,255); // make sure pump is on
 digitalWrite(exhaustValvePin,LOW); // turn exhaust valve LOW
 digitalWrite(ledPin,HIGH); // LED ON
 }
 
 if ( digitalRead(2) == LOW) {
-digitalWrite(inletValvePin,LOW); // turn pressure valve HIGH
-digitalWrite(pumpPin,LOW); // pump is off
+digitalWrite(inletValvePin,HIGH); // turn pressure valve HIGH
+analogWrite(pumpPin,0); // pump is off
 digitalWrite(exhaustValvePin,HIGH); // turn exhaust valve HIGH
 digitalWrite(ledPin,LOW); // LED off
 }
 
-int sensorValue = analogRead(analogInPin);
-// digital value of pressure sensor voltage
-double voltage_mv =  (sensorValue * reference_voltage_mv) / ADCFULLSCALE;
- 
-// pressure sensor voltage in mV
-double voltage_v = voltage_mv / 1000; 
-                                     
-double output_pressure = ( ( (voltage_v - (0.10 * (reference_voltage_mv/1000) )) * (Pmax - Pmin) ) / (0.8 * (reference_voltage_mv/1000) ) ) + Pmin;
+
+//Wire.beginTransmission(byte(0x28)); // transmit to device #44 (0x2c)
+                              // device address is specified in datasheet
+Wire.requestFrom(byte(0x28), 2);            // sends instruction byte  
+val1 = Wire.read();             // sends potentiometer value byte  
+     // stop transmitting
+val2 = Wire.read();        // increment value
+
+Serial.print(val1, DEC);
+Serial.print('\t');
+Serial.println(val2, DEC);
+
+delay(500);
+  
 
 
 //FSM Control
 
 
 
-if (sensorValue <= desiredValue) {
+if (val2 <= desiredValue) {
 analogWrite(pumpPin,255); // Pump. (0 is off) and (255 is on)
 digitalWrite(inletValvePin,HIGH); // open the air valve
 digitalWrite(exhaustValvePin,LOW); // close the exhaust valve
 }
 
-if (sensorValue > desiredValue) {
-  while (analogRead(A0) > (desiredValue - tolerance) ) {
-  analogWrite(pumpPin,190); // reduce speed of pump
+if (val2 > desiredValue) {
+  while (val2 > (desiredValue - tolerance) ) {
+  analogWrite(pumpPin,0); // reduce speed of pump
   digitalWrite(inletValvePin,HIGH); // open the air valve
-  digitalWrite(exhaustValvePin,LOW); // close the exhaust valve
+  digitalWrite(exhaustValvePin,HIGH); // close the exhaust valve
+  Wire.requestFrom(byte(0x28), 2);            // sends instruction byte  
+  val1 = Wire.read();             // sends potentiometer value byte  
+     // stop transmitting
+  val2 = Wire.read();  
+  delay(500);
   }
+
 }
 
 
